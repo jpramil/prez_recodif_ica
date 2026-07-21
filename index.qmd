@@ -1,6 +1,6 @@
 ---
 title: "Recoder une nomenclature avec des LLM"
-subtitle: "Recodification vers la NAF 2025 assistée par LLMs"
+subtitle: "Le cas de la transition vers la NAF 2025 pour Sirene"
 author:
   - name: "Julien PRAMIL"
     email: "julien.pramil@insee.fr"
@@ -28,6 +28,8 @@ description: |
 
 - Projet en partenariat avec RIAS
 - Premier modèle de codification automatique du SSPlab passé en production
+
+. . .
 
 ::: {.columns}
 
@@ -221,122 +223,13 @@ Surface de vente (en mètre carré) : 45
 :::
 
 
-
-# 2. Idée générale
-
-
-
-
-
-# 4. Le pipeline de recodification
-
-## Vue d'ensemble : 6 étapes
-
-```{mermaid}
-%%| fig-width: 11
-flowchart LR
-  A[0 · Validation<br/>de l'entrée] --> B[1 · Base vectorielle<br/>RAG, optionnel]
-  A --> C[2 · Codes univoques<br/>règle, sans LLM]
-  A --> D[3 · Codes multivoques<br/>LLM CAG, batché]
-  D --> E[4 · Ensemble<br/>vote majoritaire]
-  C --> F[5 · Jeu final<br/>NACE 2025]
-  E --> F
-```
-
-Chaque étape journalise ses `INPUT :` / `OUTPUT :`. Deux modes : **prod** (recoder un fichier) · **eval** (métriques sur lignes annotées).
-
-## Étapes 0 & 2
-
-::: {.columns}
-
-::: {.column width="50%"}
-**0 · Validation de l'entrée**
-
-- Barrière : n'écrit rien, **lève une erreur** si problème
-- Colonnes requises présentes ?
-- `liasse_numero` / `apet2008` non nuls ?
-- `apet2008` bien formé (`^[0-9]{4}[A-Z]$`) ?
-- Requêtes DuckDB **poussées** sur le Parquet S3
-:::
-
-::: {.column width="50%"}
-**2 · Codes univoques (sans LLM)**
-
-- Code 2008 → **un seul** code 2025
-- Réécriture directe via un `CASE WHEN` **DuckDB**
-- Rapide, déterministe, sans coût LLM
-- Sortie : `univocal/sirene4_univoques.parquet`
-:::
-
-:::
-
-## Étape 3 : encodage des multivoques
-
-Le cœur LLM — **batché et reprenable**.
-
-- On ne garde que les lignes dont `apet2008` est **multivoque**
-- Traitement par **lots** (`batch_size`, défaut 1000) : prompts → `call_llm` → parsing → écriture d'un `part-*.parquet`
-- **Reprise** : rejouer avec le **même `job_id`** saute les lots déjà écrits → un run planté de plusieurs heures **repart où il s'était arrêté**
-- Une **sous-arborescence par modèle** (`ambiguous/{modèle}/results|prompts/`)
-- Chaque run publie son **run id MLflow** pour l'étape suivante
-
-## Étapes 4 & 5
-
-::: {.columns}
-
-::: {.column width="50%"}
-**4 · Ensemble**
-
-- Récupère les prédictions de chaque modèle (via MLflow)
-- **Vote majoritaire** par `liasse_numero` (égalité tranchée par ordre)
-- En eval : accuracies + accords ; en prod (`--export`) : écrit `ensemble/sirene4_ambiguous.parquet`
-:::
-
-::: {.column width="50%"}
-**5 · Jeu final NACE 2025**
-
-- Combine **3 sources** : univoques + LLM + vérité terrain (prioritaire)
-- Réattache les variables descriptives (`VAR_TO_KEEP` − code 2008)
-- Contrôle d'unicité des `liasse_numero`
-- Sortie : `final/sirene4_nace2025.parquet`
-:::
-
-:::
-
-## Sorties « job-scoped » & orchestration
-
-::: {.columns}
-
-::: {.column width="52%"}
-**Une racine unique par run** (`job_id`)
-
-```
-workflow_relabel/{job_id}/
-  ├── univocal/   (étape 2)
-  ├── ambiguous/{modèle}/  (étape 3)
-  ├── ensemble/   (étape 4)
-  ├── final/      (étape 5)
-  └── run_ids/    (étape 3 → 4)
-```
-:::
-
-::: {.column width="48%"}
-**Argo Workflows**
-
-- Un seul DAG (`relabel.yaml`), étapes 0→5
-- **Un seul fichier** à éditer par run (`params.yaml`)
-- Runs concurrents = `job_id` distincts, **jamais de collision**
-- `job_id` = clé unique de **reprise**
-:::
-
-:::
-
-
-# 5. Les briques techniques
+# 4. Précisions et briques techniques
 
 ## Construction du prompt CAG
 
-Pour chaque observation, on assemble 4 « emplacements » (`create_prompt`) :
+- Utilisation d'un template de prompt **versionné dans Langfuse**.
+
+Pour chaque observation, on assemble 4 « emplacements » :
 
 | Emplacement | Contenu | Provenance |
 |-------------|---------|------------|
@@ -345,7 +238,6 @@ Pour chaque observation, on assemble 4 « emplacements » (`create_prompt`) :
 | `proposed_codes` | candidats 2025 **+ notes explicatives** | table + notes |
 | `list_proposed_codes` | `'01.11Z', '01.19Z', …` | liste fermée de choix |
 
-[Le gabarit de prompt lui-même est **versionné dans Langfuse** (label `production`) et compilé ligne à ligne.]{.small}
 
 ## Le prompt : système + utilisateur
 
@@ -429,22 +321,12 @@ Pour chaque observation, on assemble 4 « emplacements » (`create_prompt`) :
 **Options**
 
 - Mode **thinking** : budget 100 → 8192 tokens (~10× plus lent)
-- **Confiance** : auto-évaluée par défaut *(bascule récente : plus les log-probs)*
+- **Confiance** : auto-évaluée par défaut
 - Réponse illisible / `null` → traitée comme **non codable**
 :::
 
 :::
 
-## Plusieurs annotateurs virtuels
-
-| Modèle | Taille | Vitesse | Comportement |
-|--------|--------|---------|--------------|
-| Qwen3-6-35B MoE | 35B | Très rapide (13 it/s) | Modérément restrictif |
-| Qwen3-6-35B MoE + thinking | 35B | Lent (~1 it/s) | Moins restrictif |
-| Gemma4-26B MoE | 26B | Rapide (8 it/s) | Modérément restrictif |
-
-- Chaque modèle = un **annotateur virtuel indépendant** (open-source, servi en interne)
-- **Agrégation par vote majoritaire** : les erreurs complémentaires s'annulent
 
 ## La stack MLOps sur le SSPCloud
 
@@ -469,7 +351,7 @@ Pour chaque observation, on assemble 4 « emplacements » (`create_prompt`) :
 
 [Entièrement open-source, conteneurisé, reproductible.]{.bold}
 
-## Brique alternative : le RAG
+## Quête alternative : le RAG
 
 ::: {.columns}
 
@@ -489,6 +371,16 @@ Pour chaque observation, on assemble 4 « emplacements » (`create_prompt`) :
 
 [**Hors ligne** : base vectorielle (Qdrant) des notes NACE 2025. **En ligne** : on *embed* la description, on récupère les **top-k** codes proches, injectés dans le même squelette de prompt. Coût : un modèle d'embedding + une base à maintenir.]{.small}
 
+## Queêtes alternative : CAG avec plusieurs annotateurs virtuels
+
+| Modèle | Taille | Vitesse | Comportement |
+|--------|--------|---------|--------------|
+| Qwen3-6-35B MoE | 35B | Très rapide (13 it/s) | Modérément restrictif |
+| Qwen3-6-35B MoE + thinking | 35B | Lent (~1 it/s) | Moins restrictif |
+| Gemma4-26B MoE | 26B | Rapide (8 it/s) | Modérément restrictif |
+
+- Chaque modèle = un **annotateur virtuel indépendant** (open-source, servi en interne)
+- **Agrégation par vote majoritaire** : les erreurs complémentaires s'annulent
 
 # 6. Éléments d'évaluation (et limites)
 
@@ -550,62 +442,31 @@ Pour chaque observation, on assemble 4 « emplacements » (`create_prompt`) :
 - **Plafond d'évaluation** : l'accord inter-experts n'est que de 62 % (strict) — la « vérité terrain » est elle-même bruitée
 
 
-# 7. Dernières actualités & réentraînement en cours
+# 7. Dernières actualités
 
-## Reconstruction du jeu d'entraînement
+## Mise à jour du processus de recodification
 
-Une fois le LLM validé sur le benchmark, on applique à l'échelle :
-
-- **~1,0 M** observations multivoques recodées par le pipeline LLM
-- Combinées à **~1,3 M** univoques (table)
-- **~2,3 M** labels en NACE 2025
-- Distribution des codes prédits **très proche** de la distribution observée
-
-::: {.callout-tip}
-Un jeu d'entraînement **semi-synthétique** : vraies entreprises, vraies descriptions, mais labels algorithmiques.
-:::
+- Passage à **llm.lab** + optimisation des appels pour passage à l'échelle
+- Refactor du prompt template (règle plus claires, ordre optimisé)
+- Ajout d'information (surface commerciale)
+- Détection des LMNP
 
 ## Réentraînement du classifieur
 
-::: {style="text-align: center; margin-top: 0.6em;"}
-[**TorchTextClassifiers**]{style="font-size: 1.05em;"} réentraîné sur le corpus semi-synthétique
+- Sur une extraction Sirène plus récente (octobre 2025 à juin 2026), recodée en NAF 2025 (~2M)
+- \+ 500k liasses annotées en NAF 2025 issues de la reprise manuelle
+- Avec un framework à l'état de l'art : **TorchTextClassifier** (PyTorch).
 
-[~80 %]{style="font-size: 3.4em; font-weight: bold; color:#12406b; display:block; margin:0.2em 0;"}
+## Evaluation et monitoring : progrès en vue
 
-d'accuracy globale sur un jeu de test NACE 2025 représentatif
+- Nouvelle extraction Sirène => plus de goldstandard pour évaluer
+- Hypothèse forte sur la qualité des labellisation NAF 2008 en input du processus
+- Pas de monitoring à ce jour => mise en place en court côté RIAS
 
-**≈** le classifieur NAF rév. 2 historique sur sa propre tâche
-:::
-
-[Les labels semi-synthétiques générés par LLM peuvent **se substituer aux annotations manuelles** dans les premières phases d'une transition de nomenclature.]{.bold}
-
-## Ce qui bouge en ce moment
-
-::: {.columns}
-
-::: {.column width="50%"}
-**Direction prise**
-
-- Vers un pipeline **CAG-only, mono-modèle** (élaguer le RAG et le vote)
-- Confiance auto-évaluée adoptée par défaut (abandon des log-probs)
-- Ajout de précisions au prompt (surface de vente, catégorie juridique)
-:::
-
-::: {.column width="50%"}
-**Chantiers ouverts**
-
-- Améliorer le RAG (embeddings, rerankers) pour le rendre compétitif
-- Un signal de confiance **fiable** (cohérence inter-runs, vérifieur)
-- Étendre l'approche à d'autres nomenclatures
-- Réentraînement du classifieur sur le **dernier millésime** du corpus
-:::
-
-:::
-
-## Merci {.center .vcenter}
+## Merci {.center}
 
 ::: {style="text-align:center; margin-top:1em;"}
-**Julien PRAMIL** — Data Scientist, SSPlab
+**Julien PRAMIL** — SSPlab
 
 [julien.pramil@insee.fr](mailto:julien.pramil@insee.fr)
 
