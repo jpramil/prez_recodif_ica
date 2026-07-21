@@ -1,0 +1,27 @@
+project:
+  type: default
+  title: "Recodification NAF 2025 assistée par LLMs"
+  output-dir: _output
+
+format:
+  revealjs:
+    theme: [simple, custom.scss]
+    slide-number: c/t
+    transition: slide
+    width: 1250
+    height: 820
+    margin: 0.06
+    embed-resources: true
+    lightbox: true
+    toc: false
+    code-line-numbers: false
+
+from: markdown+emoji
+lang: "fr"
+
+execute:
+  echo: false
+  cache: false
+  warning: false
+  message: false
+  error: true

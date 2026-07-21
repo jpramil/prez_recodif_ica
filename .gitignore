@@ -1,0 +1,22 @@
+# Quarto
+/.quarto/
+_output/
+*_files/
+*_cache/
+/*.html
+
+# Résidus du template Insee (non utilisés — thème revealjs natif)
+_extensions/
+css/
+js/
+modulesCompl/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.env
+
+# OS
+.DS_Store
+Thumbs.db
