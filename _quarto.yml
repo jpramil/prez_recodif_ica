@@ -6,6 +6,7 @@ project:
 format:
   revealjs:
     theme: [simple, custom.scss]
+    center: true
     slide-number: c/t
     transition: slide
     width: 1250

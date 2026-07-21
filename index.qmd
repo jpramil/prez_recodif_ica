@@ -91,16 +91,34 @@ Pour un code multivoque, la table de correspondance ne suffit pas : il faut **la
 
 ## L'échelle du problème
 
-:::
 | | Multivoque | Univoque |
 |---|---|---|
 | Table de correspondance | 25 % | 75 % |
 | Jeu d'entraînement réel | **52 %** | 48 % |
-:::
 
 - 1,4 million de liasses impossibles à recoder de manière déterministe à l'aide d'une table de passage
 - [**On passe à l'échelle en mobilisant un LLM sur ces cas multivoques**.]{.bold}
 
+## Le CAG : classification sous contrainte
+
+**« Quel code parmi les 732 ? »**
+
+- Espace **trop large** pour une génération fiable
+- **Hallucinations** très fréquentes (codes inexistants, vieux codes NAF 2008)
+
+
+**→ Sélection contrainte** *(Context-Augmented Generation, CAG)*
+
+- Pour chaque observation, on connaît déjà le **code NAF rév. 2**
+- La table de correspondance donne l'**ensemble des NACE 2025 admissibles** (~2 à 5 candidats)
+- La tâche devient : **choisir le bon code dans une courte liste fermée**
+- Décision **alignée sur les règles officielles**
+
+## Le RAG comme alternative
+
+![](img/schema_cag_rag.png){width=82% fig-align="center"}
+
+[**CAG** : candidats issus de la **table de correspondance** (déterministe). **RAG** : candidats issus d'une **recherche sémantique** dans une base vectorielle. Squelette de prompt identique.]{.small}
 
 
 # 2. Les données à disposition
@@ -108,7 +126,7 @@ Pour un code multivoque, la table de correspondance ne suffit pas : il faut **la
 ## Quatre sources pour coder
 
 | Source | Contenu | Rôle | Notes |
-|--------|---------|------|
+|--------|---------|------| ------- |
 | **Extraction SIRENE 4** | Libellé d'activité + variables additionnelles | Décrire l'entreprise | Initialement mars à octobre 2024 |
 | **Code NAF 2008 (`apet2008`)** | Code en NAF 2008 | Restreindre les candidats | Labellisation par modèle *mais considérée comme très fiable*|
 | **Table de correspondance** | NAF 2008 → {NAF 2025 admissibles} | Liste fermée de candidats | |
@@ -208,27 +226,6 @@ Surface de vente (en mètre carré) : 45
 
 
 
-## Ne pas demander une génération libre
-
-**« Quel code parmi les 732 ? »**
-
-- Espace **trop large** pour une génération fiable
-- **Hallucinations** très fréquentes (codes inexistants)
-
-. . .
-
-**→ Sélection contrainte** *(Context-Augmented Generation, CAG)*
-
-- Pour chaque observation, on connaît déjà le **code NAF rév. 2**
-- La table de correspondance donne l'**ensemble des NACE 2025 admissibles** (2–5)
-- La tâche devient : **choisir le bon code dans une courte liste fermée**
-- Décision **alignée sur les règles officielles**
-
-## Deux façons de fournir les candidats
-
-![](img/schema_cag_rag.png){width=82% fig-align="center"}
-
-[**CAG** : candidats issus de la **table de correspondance** (déterministe). **RAG** : candidats issus d'une **recherche sémantique** dans une base vectorielle. Squelette de prompt identique.]{.small}
 
 
 # 4. Le pipeline de recodification
@@ -605,7 +602,7 @@ d'accuracy globale sur un jeu de test NACE 2025 représentatif
 
 :::
 
-## Merci {.center}
+## Merci {.center .vcenter}
 
 ::: {style="text-align:center; margin-top:1em;"}
 **Julien PRAMIL** — Data Scientist, SSPlab
