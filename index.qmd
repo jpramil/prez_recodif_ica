@@ -15,11 +15,10 @@ description: |
 ## Sommaire {.smaller}
 
 1. **Contexte et idée générale**
-3. **Les données à disposition**
-4. **Le pipeline de recodification**
-5. **Les briques techniques**
-6. **Éléments d'évaluation (et limites)**
-7. **Dernières actualités & réentraînement en cours**
+2. **Les données à disposition**
+3. **Précisions et briques techniques**
+4. **Éléments d'évaluation (et limites)**
+5. **Dernières actualités**
 
 
 # 1. Contexte et idée générale
@@ -34,7 +33,7 @@ description: |
 
 ::: {.column width="50%"}
 
-### Etat initial
+### État initial
 
 - Transition post Sicore
 - Modèle de codification automatique de type Fasttext pour coder en NAF 2008
@@ -44,14 +43,14 @@ description: |
 
 ::: {.column width="50%"}
 
-### Les évoluations justifiant le projet
+### Les évolutions justifiant le projet
 
-- Changement côté SI (Sirène 4)
-- Passage progressif NAF 2008 => NAF 2025
-  - Besoin d'un modèle qui code en NAF2025
+- Changement côté SI (Sirene 4)
+- Passage progressif NAF 2008 → NAF 2025
+  - Besoin d'un modèle qui code en NAF 2025
   - Cas particulier du cycle de vie ML :
     - Ce n'est pas le X qui dérive mais le Y (différent d'un réentraînement classique / *datadrift*)
-    - Très peu de liasses annotées en NAF 2025 (initialement) => pas d'entraînement d'un nouveau modèle *from scratch* possible
+    - Très peu de liasses annotées en NAF 2025 (initialement) → pas d'entraînement d'un nouveau modèle *from scratch* possible
 
 :::
 
@@ -128,13 +127,13 @@ Pour un code multivoque, la table de correspondance ne suffit pas : il faut **la
 
 | Source | Contenu | Rôle | Notes |
 |--------|---------|------| ------- |
-| **Extraction SIRENE 4** | Libellé d'activité + variables additionnelles | Décrire l'entreprise | Initialement mars à octobre 2024 |
+| **Extraction Sirene 4** | Libellé d'activité + variables additionnelles | Décrire l'entreprise | Initialement mars à octobre 2024 |
 | **Code NAF 2008 (`apet2008`)** | Code en NAF 2008 | Restreindre les candidats | Labellisation par modèle *mais considérée comme très fiable*|
 | **Table de correspondance** | NAF 2008 → {NAF 2025 admissibles} | Liste fermée de candidats | |
 | **Notes explicatives** | Définitions officielles (comprend / ne comprend pas) | Départager les candidats | |
 
 
-## Les colonnes de l'extraction SIRENE 4
+## Les colonnes de l'extraction Sirene 4
 
 
 | Colonne | Signification | Usage LLM |
@@ -222,7 +221,7 @@ Surface de vente (en mètre carré) : 45
 :::
 
 
-# 4. Précisions et briques techniques
+# 3. Précisions et briques techniques
 
 ## Construction du prompt CAG
 
@@ -232,7 +231,7 @@ Pour chaque observation, on assemble 4 « emplacements » :
 
 | Emplacement | Contenu | Provenance |
 |-------------|---------|------------|
-| `activity` | libellé + précisions | SIRENE 4 |
+| `activity` | libellé + précisions | Sirene 4 |
 | `nace_old` | `01.11Z : Culture de céréales…` | table (code 2008 + intitulé) |
 | `proposed_codes` | candidats 2025 **+ notes explicatives** | table + notes |
 | `list_proposed_codes` | `'01.11Z', '01.19Z', …` | liste fermée de choix |
@@ -350,7 +349,7 @@ Pour chaque observation, on assemble 4 « emplacements » :
 
 [Entièrement open-source, conteneurisé, reproductible.]{.bold}
 
-## Quête alternative : le RAG
+## Piste alternative : le RAG
 
 ::: {.columns}
 
@@ -370,7 +369,7 @@ Pour chaque observation, on assemble 4 « emplacements » :
 
 [**Avant le run** : base vectorielle (Qdrant) des notes NACE 2025. **Pendant le run** : on *embed* la description, on récupère les **top-k** codes proches, injectés dans le même squelette de prompt. Coût : un modèle d'embedding + une base à maintenir.]{.small}
 
-## Quêtes alternative : CAG avec plusieurs annotateurs virtuels
+## Piste alternative : CAG avec plusieurs annotateurs virtuels
 
 | Modèle | Taille | Vitesse | Comportement |
 |--------|--------|---------|--------------|
@@ -381,7 +380,7 @@ Pour chaque observation, on assemble 4 « emplacements » :
 - Chaque modèle = un **annotateur virtuel indépendant** (open-source, servi en interne)
 - **Agrégation par vote majoritaire** : les erreurs complémentaires s'annulent
 
-# 6. Éléments d'évaluation (et limites)
+# 4. Éléments d'évaluation (et limites)
 
 ## Comment évaluer ?
 
@@ -440,26 +439,26 @@ Pour chaque observation, on assemble 4 « emplacements » :
 - **Plafond d'évaluation** : l'accord inter-experts n'est que de 62 % (strict) — la « vérité terrain » est elle-même bruitée
 
 
-# 7. Dernières actualités
+# 5. Dernières actualités
 
 ## Mise à jour du processus de recodification
 
 - Passage à **llm.lab** + optimisation des appels pour passage à l'échelle
-- Refactor du prompt template (règle plus claires, ordre optimisé)
-- Ajout d'information (surface commerciale)
+- Refonte du template de prompt (règles plus claires, ordre optimisé)
+- Ajout d'informations (surface commerciale)
 - Détection des LMNP
 
 ## Réentraînement du classifieur
 
-- Sur une extraction Sirène plus récente (octobre 2025 à juin 2026), recodée en NAF 2025 (~2M)
+- Sur une extraction Sirene plus récente (octobre 2025 à juin 2026), recodée en NAF 2025 (~2 M)
 - \+ 500k liasses annotées en NAF 2025 issues de la reprise manuelle
 - Avec un framework à l'état de l'art : **TorchTextClassifier** (PyTorch).
 
-## Evaluation et monitoring : progrès en vue
+## Évaluation et monitoring : progrès en vue
 
-- Nouvelle extraction Sirène => plus de goldstandard pour évaluer
-- Hypothèse forte sur la qualité des labellisation NAF 2008 en input du processus
-- Pas de monitoring à ce jour => mise en place en court côté RIAS
+- Nouvelle extraction Sirene → davantage de *gold standard* pour évaluer
+- Hypothèse forte sur la qualité de la labellisation NAF 2008 en entrée du processus
+- Pas de monitoring à ce jour → mise en place en cours côté RIAS
 
 ## Merci {.center}
 
