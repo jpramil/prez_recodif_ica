@@ -27,7 +27,6 @@ description: |
 ## Contexte
 
 - Projet en partenariat avec RIAS
-- Premier modèle de codification automatique du SSPlab passé en production
 
 . . .
 
@@ -39,7 +38,7 @@ description: |
 
 - Transition post Sicore
 - Modèle de codification automatique de type Fasttext pour coder en NAF 2008
-  - Entrainé sur ~2,7 millions de liasses annotées en NAF 2008
+  - Premier modèle de ML en production
 
 :::
 
@@ -154,7 +153,7 @@ Pour un code multivoque, la table de correspondance ne suffit pas : il faut **la
 ::: {.columns}
 
 ::: {.column width="48%"}
-**Principe** (`_format_activity_description`)
+**Principe**
 
 - On part du `libelle`
 - On y **ajoute chaque précision non vide**, préfixée de son étiquette
@@ -215,9 +214,9 @@ Surface de vente (en mètre carré) : 45
 ::: {.column width="50%"}
 **Ce qu'on en apprend**
 
+- Un **protocole de raisonnement** explicite, encodable dans un prompt
 - Accord inter-experts **imparfait** : 62 % d'accord strict à 3, 96 % à la majorité
 - → interpréter les métriques avec prudence
-- Un **protocole de raisonnement** explicite, encodable dans un prompt
 :::
 
 :::
@@ -369,9 +368,9 @@ Pour chaque observation, on assemble 4 « emplacements » :
 
 :::
 
-[**Hors ligne** : base vectorielle (Qdrant) des notes NACE 2025. **En ligne** : on *embed* la description, on récupère les **top-k** codes proches, injectés dans le même squelette de prompt. Coût : un modèle d'embedding + une base à maintenir.]{.small}
+[**Avant le run** : base vectorielle (Qdrant) des notes NACE 2025. **Pendant le run** : on *embed* la description, on récupère les **top-k** codes proches, injectés dans le même squelette de prompt. Coût : un modèle d'embedding + une base à maintenir.]{.small}
 
-## Queêtes alternative : CAG avec plusieurs annotateurs virtuels
+## Quêtes alternative : CAG avec plusieurs annotateurs virtuels
 
 | Modèle | Taille | Vitesse | Comportement |
 |--------|--------|---------|--------------|
@@ -384,7 +383,7 @@ Pour chaque observation, on assemble 4 « emplacements » :
 
 # 6. Éléments d'évaluation (et limites)
 
-## Comment on évalue
+## Comment évaluer ?
 
 - Référence : les **~28 000 cas multivoques annotés** à la main (NACE 2025, niveau 5)
 - Trois accuracies complémentaires (au niveau sous-classe) :
@@ -406,7 +405,6 @@ Pour chaque observation, on assemble 4 « emplacements » :
 | [**Vote majoritaire**]{.bold} | [**78,3 %**]{.bold} | — | [**86,9 %**]{.bold} |
 
 - Le vote **gagne ~3 points**, mais coûte **3 passes** d'inférence (dont une en thinking)
-- Accord entre modèles : **79 %** d'accord total, ~84 % par paire
 
 ## CAG vs RAG
 

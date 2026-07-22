@@ -64,3 +64,11 @@ $selection-bg: #cfe3f5;
 // Give figures a little breathing room
 .reveal .slide figure { margin: 0.2em auto; }
 
+// Zone tampon entre colonnes.
+// Le thème remet .columns en display:initial (inline-block) → gap inopérant.
+// On rétablit flex (sélecteur plus spécifique que `div.columns`) pour activer gap.
+.reveal .columns {
+  display: flex;
+  gap: 2.5em;
+}
+
